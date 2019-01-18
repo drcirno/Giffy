@@ -5,4 +5,12 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="DSharpPlus" Version="3.2.3" />
+    <PackageReference Include="DSharpPlus.CommandsNext" Version="3.2.3" />
+    <PackageReference Include="DSharpPlus.VoiceNext" Version="3.2.3" />
+    <PackageReference Include="VideoLibrary" Version="2.0.3" />
+    <PackageReference Include="Xabe.FFmpeg" Version="3.1.4" />
+  </ItemGroup>
+
 </Project>
