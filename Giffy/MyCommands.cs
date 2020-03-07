@@ -392,6 +392,119 @@ namespace Giffy
             File.Delete(source);
 
         }
+        [Command("chelp")]
+        [Description("Displays help for celerity command")]
+        public async Task CelerityHelp(CommandContext ctx)
+        {
+            await ctx.RespondAsync("Syntax:\n\n/celerity ClassName Str Dex Cha Tech Magic Talents");
+        }
+
+        [Command("celerity")]
+        [Aliases("c")]
+        [Description("Displays calculated Celerity Lite stats")]
+        public async Task CelerityStats(CommandContext ctx, string className, string strength, string dexterity, string charisma, string technique, string magic, string talents)
+        {
+            className = className.ToLower();
+            int str = 0, dex = 0, cha = 0, tech = 0, mag = 0, tal = 0;
+            // Validates numberness
+            try
+            {
+                str = Int32.Parse(strength);
+                dex = Int32.Parse(dexterity);
+                cha = Int32.Parse(charisma);
+                tech = Int32.Parse(technique);
+                mag = Int32.Parse(magic);
+                tal = Int32.Parse(talents);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                await ctx.RespondAsync("Invalid number!");
+                return;
+            }
+            // Creates class map <name, vitality>
+            var classList = new Dictionary<string, int>();
+            classList.Add("berserker", 12);
+            classList.Add("knight", 11);
+            classList.Add("soldier", 10);
+            classList.Add("monk", 9);
+            classList.Add("priest", 8);
+            classList.Add("dancer", 7);
+            classList.Add("songstress", 7);
+            classList.Add("merchant", 6);
+            classList.Add("thief", 5);
+            classList.Add("scholar", 4);
+            int vit = 0;
+            // Validates vitality
+            if (!classList.TryGetValue(className, out vit)) 
+            {
+                await ctx.RespondAsync("Class not found: " + className);
+                return;
+            }
+            // Validate total points
+            int totalPoints = str + dex + cha + tal + tech * tech + mag;
+            if (totalPoints != 13) { await ctx.RespondAsync("Points do not add up to 13 points!"); return; }
+
+                int hp = (str + dex + cha) * vit + dex + tal;
+            int meleeDamage = str * 2 + dex + cha;
+            int rangedDamage = dex + cha;
+            int bowDamage = str + dex + cha;
+            className = char.ToUpper(className[0]) + className.Substring(1);
+
+            string output = "Class Name: " + className + "\n" + "Str: " + strength + "    " + "Dex: " + dexterity + "\n" + "Cha: " + charisma + "    " + "Tech: " + technique + "\n";
+            output = output + "Mag: " + magic + "    " + "Talents: " + talents + "\n\n";
+            output = output + "HP: " + hp.ToString() + "\nMelee Damage Modifier : +" + meleeDamage.ToString() + "\nRanged Damage Modifier: +" + rangedDamage.ToString() + "\nBow Damage Modifier: +" + bowDamage.ToString();
+
+            await ctx.RespondAsync(output);
+
+        }
+
+        [Command("statgenr")]
+        [Aliases("sr")]
+        [Description("Roll D&D stats with required number")]
+        public async Task StatGen(CommandContext ctx, string threshold)
+        {
+            var rand = new Random();
+            string output = "", flavor = "[";
+            int reqnum = -1;
+            if (threshold != null && !threshold.Equals(""))
+            {
+                try
+                {
+                    reqnum = Int32.Parse(threshold);
+                    if (reqnum < 3 || reqnum > 18) throw new ArgumentException();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    await ctx.RespondAsync("Invalid number! The number must be between 3 and 18, inclusive.");
+                    return;
+                }
+            }
+            bool metRequirement = false;
+            do {
+                output = "";
+                flavor = "[";
+                int sum = 0;
+                for (int i = 0; i < 6; i++)
+                {
+                    if (reqnum == -1) metRequirement = true;
+                    int[] dice = new int[4]; string[] dicetext = new string[4];
+                    for (int k = 0; k < 4; k++) { dice[k] = rand.Next(1, 7); dicetext[k] = dice[k].ToString(); }
+                    int index = Array.IndexOf(dice, dice.Min());
+                    dice[index] = 0; dicetext[index] = "~~" + dicetext[index] + "~~";
+                    sum = dice.Sum(); output += "{";
+                    for (int k = 0; k < 4; k++) { output += dicetext[k]; if (k < 3) output += ", "; } output += "} ";
+                    output = output + "[" + sum.ToString() + "]  ";
+                    flavor += sum.ToString();
+                    if (i < 5) flavor += ", ";
+                }
+                flavor += "]";
+                if (sum == reqnum) metRequirement = true;
+            } while(!metRequirement);
+
+            await ctx.RespondAsync($"Here is your generation!\n\n**Roll:** {output}\n\n**Result:** {flavor}");
+        }
 
         [Command("statgen")]
         [Aliases("s")]
@@ -408,7 +521,8 @@ namespace Giffy
                 int index = Array.IndexOf(dice, dice.Min());
                 dice[index] = 0; dicetext[index] = "~~" + dicetext[index] + "~~";
                 int sum = dice.Sum(); output += "{";
-                for (int k = 0; k < 4; k++) { output += dicetext[k]; if (k < 3) output += ", "; } output += "} ";
+                for (int k = 0; k < 4; k++) { output += dicetext[k]; if (k < 3) output += ", "; }
+                output += "} ";
                 output = output + "[" + sum.ToString() + "]  ";
                 flavor += sum.ToString();
                 if (i < 5) flavor += ", ";
