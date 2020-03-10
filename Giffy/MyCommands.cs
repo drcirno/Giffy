@@ -30,6 +30,158 @@ namespace Giffy
 
         }
 
+        [Command("test")]
+        public async Task Test(CommandContext ctx)
+        {
+            CelerityIO cio = new CelerityIO();
+            List<CeleritySpell> celeritySpells = cio.readSpellList();
+            await ctx.RespondAsync(celeritySpells[0].title);
+        }
+
+        [Group("d20celerity", CanInvokeWithoutSubcommand = true)]
+        [Description("d20celerity library commands.")]
+        [Aliases("d20")]
+        public class D20celerity 
+        {
+            public async Task ExecuteGroupAsync(CommandContext ctx) 
+            {
+                await ctx.RespondAsync("***__Syntax:__***\n***Spells:***\n```/d20 spell Spell_Name``````/d20 spell [class Spell_Class] [level Spell_Level]```");
+            }
+
+            [Command("spell"), Aliases("s"), Description("Spells library")]
+            public async Task Spell(CommandContext ctx, params string[] args)
+            {
+                string spellClass = "";
+                int spellLevel = -1;
+                bool nameSearch = true;
+
+                //Determine if user looked for name or spell class/level
+                for (int i = 0; i < args.Length; i++) {
+                    args[i] = args[i].ToLower();
+                    if (args[i].Equals("class")) {
+                        spellClass = args[i + 1];
+                        spellClass = Char.ToUpper(spellClass[0]) + spellClass.Substring(1);
+                        nameSearch = false;
+                    }
+                    if (args[i].Equals("level")) {
+                        if (!Int32.TryParse(args[i + 1], out spellLevel)) {
+                            await ctx.RespondAsync("Invalid spell level!");
+                            return;
+                        }
+                        nameSearch = false;
+                    }
+                } // end validation
+
+                // Loads spell database
+                CelerityIO cio = new CelerityIO();
+                List<CeleritySpell> celeritySpells = cio.readSpellList();
+
+                if (nameSearch)
+                {
+                    // User is searching for spell name
+                    string name = String.Join(" ", args);
+                    bool found = false;
+                    CeleritySpell data = null;
+                    foreach( CeleritySpell cs in celeritySpells){
+                        if (cs.title.ToLower().Equals(name)) {
+                            found = true;
+                            data = cs;
+                            break;
+                        }
+                    } // end foreach
+
+                    if (!found)
+                    {
+                        await ctx.RespondAsync("Spell not found: " + name);
+                        return;
+                    }
+                    else 
+                    {
+                        // Found a corresponding spell
+                        Console.WriteLine("Spell Found: " + name + "\n");
+                        Console.WriteLine(data.ToString());
+                        DiscordEmbedBuilder embed = new DiscordEmbedBuilder { Title = data.title, Color = new DiscordColor(1621076), Url = data.link };
+                        if (!data.category.Equals("null"))
+                            embed.AddField("Category", data.category);
+                        embed.AddField("Class Level", data.spellLevelsToString());
+                        if (!data.components.Equals("null"))
+                            embed.AddField("Components", data.components);
+                        if (!data.castingTime.Equals("null"))
+                            embed.AddField("Casting Time", data.castingTime);
+                        if (!data.range.Equals("null"))
+                            embed.AddField("Range", data.range);
+                        if (!data.target.Equals("null"))
+                            embed.AddField("Target", data.target);
+                        if (!data.duration.Equals("null"))
+                            embed.AddField("Duration", data.duration);
+                        if (!data.effect.Equals("null"))
+                            embed.AddField("Effect", data.effect);
+                        if (!data.savingThrow.Equals("null"))
+                            embed.AddField("Saving Throw", data.savingThrow);
+                        embed.AddField("Description", data.body);
+
+                        await ctx.RespondAsync(embed: embed);
+                        return;
+
+                    }
+                }
+                else 
+                {
+                    List<string> result = new List<string>();
+                    int match = 0;
+                    foreach (CeleritySpell cs in celeritySpells)
+                    {
+                        foreach (CeleritySpell.SpellLevel sl in cs.spellLevel) 
+                        {
+                            bool found = true;
+                            // If spell class is to be found
+                            if (!spellClass.Equals("")) 
+                            {
+                                if (!sl.caster.Equals(spellClass)) found = false;
+                            }
+                            // If spell level is to be found
+                            if (spellLevel != -1) 
+                            {
+                                if (sl.level != spellLevel) found = false;
+                            }
+                            if (found) 
+                            {
+                                match++;
+                                result.Add(cs.title);
+                                break;
+                            }
+                        }
+                    } // end foreach
+                    string ret = "";
+                    if (result.Count() == 0) ret = "None";
+                    else ret = String.Join("\n", result);
+                    Console.WriteLine("Result length: " + ret.Length.ToString());
+
+                    DiscordEmbedBuilder embed = new DiscordEmbedBuilder { Title = "Search Result", Color = new DiscordColor(1621076) };
+                    if (ret.Length <= 1024)
+                        embed.AddField(match.ToString() + " results found", ret);
+                    else {
+                        embed.AddField(match.ToString() + " results found", ret.Substring(0, 1024));
+                        int counter = 1;
+                        bool stop = false;
+                        while (!stop) {
+                            int lineLength = 1024;
+                            if (ret.Length <= 1024 * (counter + 1)) {
+                                stop = true;
+                                lineLength = ret.Length - (1024 * counter);
+                            }
+                            embed.AddField("--", ret.Substring(1024 * counter, lineLength));
+                            counter++;
+                        }
+                    }
+
+                    await ctx.RespondAsync(embed: embed);
+                    return;
+
+                }
+            }
+        }
+
         [Command("navyseal")]
         [Aliases("n")]
         [Description("What the did you just say about me?")]
@@ -445,17 +597,27 @@ namespace Giffy
             int totalPoints = str + dex + cha + tal + tech * tech + mag;
             if (totalPoints != 13) { await ctx.RespondAsync("Points do not add up to 13 points!"); return; }
 
-                int hp = (str + dex + cha) * vit + dex + tal;
+            int hp = str + dex + cha + tal;
+            if (vit == 4) hp += mag;
+            hp = hp * vit + dex;
             int meleeDamage = str * 2 + dex + cha;
             int rangedDamage = dex + cha;
             int bowDamage = str + dex + cha;
             className = char.ToUpper(className[0]) + className.Substring(1);
+            var embed = new DiscordEmbedBuilder { Title = "Celerity Character Information", Description = "Here is a list of data to facilitate character sheet generation of Celerity Lite.", Color = new DiscordColor(1621076) };
+            embed.AddField("Class", className);
+            embed.AddField("Strength", strength, true);
+            embed.AddField("Dexterity", dexterity, true);
+            embed.AddField("Charisma", charisma, true);
+            embed.AddField("Technique", technique, true);
+            embed.AddField("Magic", magic, true);
+            embed.AddField("Expertise", talents, true);
+            embed.AddField("Hit Points", hp.ToString());
+            embed.AddField("Melee Damage Bonus", "+" + meleeDamage.ToString());
+            embed.AddField("Ranged Damage Bonus", "+" + rangedDamage.ToString());
+            embed.AddField("Bow Damage Bonus", "+" + bowDamage.ToString());
 
-            string output = "Class Name: " + className + "\n" + "Str: " + strength + "    " + "Dex: " + dexterity + "\n" + "Cha: " + charisma + "    " + "Tech: " + technique + "\n";
-            output = output + "Mag: " + magic + "    " + "Talents: " + talents + "\n\n";
-            output = output + "HP: " + hp.ToString() + "\nMelee Damage Modifier : +" + meleeDamage.ToString() + "\nRanged Damage Modifier: +" + rangedDamage.ToString() + "\nBow Damage Modifier: +" + bowDamage.ToString();
-
-            await ctx.RespondAsync(output);
+            await ctx.RespondAsync(embed: embed);
 
         }
 

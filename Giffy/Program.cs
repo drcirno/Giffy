@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
@@ -14,6 +15,7 @@ namespace Giffy
 {
     public class Program
     {
+
         public DiscordClient Client { get; set; }
         public CommandsNextModule Commands { get; set; }
         public VoiceNextClient voice;
