@@ -182,14 +182,6 @@ namespace Giffy
             }
         }
 
-        [Command("navyseal")]
-        [Aliases("n")]
-        [Description("What the did you just say about me?")]
-        public async Task NavySeal(CommandContext ctx, [Description("Member to fling this insult to.")] DiscordMember member)
-        {
-            await ctx.RespondAsync("Hey don't say that to me.");
-        }
-
         [Command("hi")]
         [Description("I greet you!")]
         public async Task Hi(CommandContext ctx)
@@ -389,49 +381,6 @@ namespace Giffy
             await ctx.RespondAsync(message);
         }
 
-        [Command("setsc")]
-        [Description("Set Stream-announcement Channel. Use this command on the channel you want the announcement to go to.")]
-        public async Task SetSC(CommandContext ctx)
-        {
-            var channel = ctx.Channel.Id.ToString();
-            var guild = ctx.Guild.Id.ToString();
-            var jsonData = File.ReadAllText("streamchannel.json");
-
-            dynamic sc = JsonConvert.DeserializeObject(jsonData);
-            
-            
-            bool rep = false; int found = 0;
-            int c = sc.SChannel.Count;
-
-            for (int counter = 0; counter < c; counter++)
-            {
-                if (sc.SChannel[counter].guildID == guild)
-                {
-                    rep = true;
-                    found = counter;
-                }
-            }
-
-            string output = "";
-            if (rep == true)
-            {                
-                sc.SChannel[found].channelID = channel;
-                await ctx.RespondAsync("Stream channel successfully changed!");
-                output = JsonConvert.SerializeObject(sc);
-            }
-            else
-            {
-                string temp = JsonConvert.SerializeObject(sc);
-                output = temp.Substring(0, temp.Length - 2) + ",{\"guildID\":\"" + guild + "\",\"channelID\":\"" + channel + "\"}]}";
-                Console.WriteLine(output);
-
-                await ctx.RespondAsync("Stream channel successfully recorded!");
-            }
-            
-
-            File.WriteAllText("streamchannel.json", output);
-        }
-
         [Command("ajoin")]
         [Description("Make the bot join Voice Channel")]
         public async Task AJoin(CommandContext ctx)
@@ -553,82 +502,6 @@ namespace Giffy
             await vnc.SendSpeakingAsync(false);
             File.Delete(output);
             File.Delete(source);
-
-        }
-        [Command("chelp")]
-        [Description("Displays help for celerity command")]
-        public async Task CelerityHelp(CommandContext ctx)
-        {
-            await ctx.RespondAsync("Syntax:\n\n/celerity ClassName Str Dex Cha Tech Magic Talents");
-        }
-
-        [Command("celerity")]
-        [Aliases("c")]
-        [Description("Displays calculated Celerity Lite stats")]
-        public async Task CelerityStats(CommandContext ctx, string className, string strength, string dexterity, string charisma, string technique, string magic, string talents)
-        {
-            className = className.ToLower();
-            int str = 0, dex = 0, cha = 0, tech = 0, mag = 0, tal = 0;
-            // Validates numberness
-            try
-            {
-                str = Int32.Parse(strength);
-                dex = Int32.Parse(dexterity);
-                cha = Int32.Parse(charisma);
-                tech = Int32.Parse(technique);
-                mag = Int32.Parse(magic);
-                tal = Int32.Parse(talents);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                await ctx.RespondAsync("Invalid number!");
-                return;
-            }
-            // Creates class map <name, vitality>
-            var classList = new Dictionary<string, int>();
-            classList.Add("berserker", 12);
-            classList.Add("knight", 11);
-            classList.Add("soldier", 10);
-            classList.Add("monk", 9);
-            classList.Add("priest", 8);
-            classList.Add("dancer", 7);
-            classList.Add("songstress", 7);
-            classList.Add("merchant", 6);
-            classList.Add("thief", 5);
-            classList.Add("scholar", 4);
-            int vit = 0;
-            // Validates vitality
-            if (!classList.TryGetValue(className, out vit)) 
-            {
-                await ctx.RespondAsync("Class not found: " + className);
-                return;
-            }
-            // Validate total points
-            int totalPoints = str + dex + cha + tal + tech * tech + mag;
-            if (totalPoints != 13) { await ctx.RespondAsync("Points do not add up to 13 points!"); return; }
-
-            int hp = str + dex + cha + tal;
-            if (vit == 4) hp += mag;
-            hp = hp * vit + dex;
-            int meleeDamage = str * 2 + dex + cha;
-            int rangedDamage = dex + cha;
-            int bowDamage = str + dex + cha;
-            className = char.ToUpper(className[0]) + className.Substring(1);
-            var embed = new DiscordEmbedBuilder { Title = "Celerity Character Information", Description = "Here is a list of data to facilitate character sheet generation of Celerity Lite.", Color = new DiscordColor(1621076) };
-            embed.AddField("Class", className);
-            embed.AddField("Strength", strength, true);
-            embed.AddField("Dexterity", dexterity, true);
-            embed.AddField("Charisma", charisma, true);
-            embed.AddField("Technique", technique, true);
-            embed.AddField("Magic", magic, true);
-            embed.AddField("Expertise", talents, true);
-            embed.AddField("Hit Points", hp.ToString());
-            embed.AddField("Melee Damage Bonus", "+" + meleeDamage.ToString());
-            embed.AddField("Ranged Damage Bonus", "+" + rangedDamage.ToString());
-            embed.AddField("Bow Damage Bonus", "+" + bowDamage.ToString());
-
-            await ctx.RespondAsync(embed: embed);
 
         }
 
