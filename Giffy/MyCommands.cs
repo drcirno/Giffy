@@ -253,7 +253,7 @@ namespace Giffy
 
             //calculation
             bool adding = false, subtracting = false;
-            int d = 0, rand = 0, now = 0, total = 0, subtotal = 0, drop = 0;
+            int d = 0, rand = 0, now = 0, total = 0, subtotal = 0, drop = 0, reroll = 0;
             Random r = new Random();
             string display = "";
             foreach (var result in temp)
@@ -270,22 +270,43 @@ namespace Giffy
                     string num = result.ToLower();
                     d = result.IndexOf('d', 0);
                     drop = result.IndexOf('/', 0);
+                    reroll = result.IndexOf('r', 0);
 
                     //if number is not a dice
-                    if (d == -1) {/*Stupid-proof #1*/if (drop != -1) { await ctx.RespondAsync("Can't drop a number."); return; } now = Int32.Parse(result); display += result; }
+                    if (d == -1) {/*Stupid-proof #1*/
+                        if (drop != -1) { await ctx.RespondAsync("Can't drop a number."); return; }
+                        if (reroll != -1) { await ctx.RespondAsync("Can't reroll a number."); return; }
+                        now = Int32.Parse(result); display += result; }
                     else
                     {
                         //it's a dice
                         string hold = "";
-                        String[] temp2 = { null, null };
+                        String[] temp2 = { null, null, null };
+                        String[] temp3 = { null, null };
+                        String[] temp4 = { null, null };
                         bool dropthis = false;
+                        bool rerollthis = false;
                         int dropnum = 0;
-                        if (drop != -1) { dropthis = true; temp2 = result.Split('/');  hold = temp2[0]; dropnum = Int32.Parse(temp2[1]); }
+                        int rerollnum = 0;
+                        if (drop != -1 && reroll != -1)
+                        {
+                            dropthis = true; rerollthis = true;
+                            if (drop < reroll) { temp3 = result.Split('/'); temp2[0] = temp3[0]; temp4 = temp3[1].Split('r');  temp2[1] = temp4[0]; temp2[2] = temp4[1]; }
+                            if (reroll < drop) { temp3 = result.Split('r'); temp2[0] = temp3[0]; temp4 = temp3[1].Split('/');  temp2[1] = temp4[1]; temp2[2] = temp4[0]; }
+                            dropnum = Int32.Parse(temp2[1]);
+                            rerollnum = Int32.Parse(temp2[2]);
+                            hold = temp2[0];
+                            
+                        }
+                        else if (drop != -1) { dropthis = true; temp3 = result.Split('/'); hold = temp3[0]; dropnum = Int32.Parse(temp3[1]); }
+                        else if (reroll != -1) { rerollthis = true; temp3 = result.Split('r');  hold = temp3[0]; rerollnum = Int32.Parse(temp3[1]); }
                         else { hold = result; }
 
 
                         int a = Int32.Parse(hold.Substring(0, d));
                         int b = Int32.Parse(hold.Substring(d + 1));
+
+                        if (rerollnum > b) rerollthis = false; // disable reroll if reroll number is higher than base
 
                         if (a > 500 || b > 10000)
                         {
@@ -293,61 +314,51 @@ namespace Giffy
                             return;
                         }
 
-                        if (dropthis == true)
+                        if (dropthis == true && a <= dropnum) { now = 0; display += "0"; } // if dropped number is bigger than given dice, result is just 0.
+                        else
                         {
-                            if (a <= dropnum) { now = 0; display += "0"; } // if dropped number is bigger than given dice, result is just 0.
-                            else
+                            int[] numstore = new int[a]; int[] droplist = new int[dropnum];
+                            List<string> strstore = new List<string>();
+                            List<int> rerolllist = new List<int>(); // rerolllist
+                            List<int> numindex = new List<int>(); // Index of survived numbers
+                            //gen arrays for calc
+                            int realindex = 0;
+                            for (int k = 0; k < a; k++)
                             {
-                                int[] numstore = new int[a]; string[] strstore = new string[a]; int[] droplist = new int[dropnum];
-                                //gen arrays for calc
-                                for (int k = 0; k < a; k++)
-                                {
-                                    rand = r.Next(1, b + 1);
-                                    numstore[k] = rand;
-                                    strstore[k] = rand.ToString();
-                                }//end for
-
-                                //drop lowest n
+                                rand = r.Next(1, b + 1);
+                                if (rerollthis == true) {
+                                    while (rand == rerollnum) { strstore.Add("~~" + rand.ToString() + "~~"); rand = r.Next(1, b + 1); realindex++; 
+                                    } // reroll
+                                } //endif
+                                numstore[k] = rand;
+                                numindex.Add(realindex);
+                                strstore.Add(rand.ToString());
+                                realindex++;
+                            }//end for
+                            //drop lowest n
+                            if (dropthis == true)
+                            {
                                 for (int k = 0; k < dropnum; k++)
                                 {
                                     int lowest = numstore.Min();
                                     int index = Array.IndexOf(numstore, lowest);
                                     numstore[index] = b + 1;
-                                    droplist[k] = index;
+                                    droplist[k] = numindex[index];
                                 }//end for
+                            }
 
-                                //cross out numbers from string storage
-                                foreach (int k in droplist) { strstore[k] = "~~" + strstore[k] + "~~"; }
+                            //cross out numbers from string storage
+                            foreach (int k in droplist) { strstore[k] = "~~" + strstore[k] + "~~"; }
 
-
-                                display += "{";
-
-                                //gen string
-                                int cnt = 0;
-                                foreach (string k in strstore) { display += k; if (cnt < a - 1) display += ", "; else display += "}";cnt++; }
-                                //calc total
-                                now = numstore.Sum() - (dropnum * (b + 1));
-
-
-                            }//end else
-                        }//endif
-                        else
-                        {
 
                             display += "{";
-                            subtotal = 0;
-                            for (int k = 0; k < a; k++)
-                            {
-                                rand = r.Next(1, b + 1);
-                                subtotal += rand;
-                                display += rand.ToString();
+                            display += String.Join(", ", strstore.ToArray());
+                            display += "}";
+                            //calc total
+                            now = numstore.Sum() - (dropnum * (b + 1));
 
-                                if (k < a - 1) display += ", ";
-                                else display += "}";
-                            } // end for
 
-                            now = subtotal;
-                        }
+                        }//end else
                     } // end conditionals
 
                     //CALCULATE TIME
